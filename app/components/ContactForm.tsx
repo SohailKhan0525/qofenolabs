@@ -13,20 +13,27 @@ export default function ContactForm() {
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const emailConfig = {
+    serviceId: process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
+    templateId: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
+    publicKey: process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY,
+  };
+
+  const isConfigured = Boolean(
+    emailConfig.serviceId?.length &&
+    emailConfig.templateId?.length &&
+    emailConfig.publicKey?.length &&
+    !emailConfig.publicKey.includes('YOUR_PUBLIC_KEY')
+  );
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus('sending');
     setErrorMessage('');
 
     try {
-      // EmailJS configuration - Update these in .env.local file
-      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
-      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
-      const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
-
-      // Check if EmailJS is configured
-      if (!serviceId || !templateId || !publicKey || publicKey === 'YOUR_PUBLIC_KEY') {
-        throw new Error('EmailJS not configured. Please set up your credentials in .env.local file.');
+      if (!isConfigured) {
+        throw new Error('Email service not configured');
       }
 
       const templateParams = {
@@ -37,13 +44,16 @@ export default function ContactForm() {
         message: formData.message,
       };
 
-      const response = await emailjs.send(serviceId, templateId, templateParams, publicKey);
+      const response = await emailjs.send(
+        emailConfig.serviceId!,
+        emailConfig.templateId!,
+        templateParams,
+        emailConfig.publicKey!
+      );
 
       if (response.status === 200) {
         setStatus('success');
         setFormData({ name: '', email: '', plan: 'Starter - $150', message: '' });
-        
-        // Reset success message after 5 seconds
         setTimeout(() => setStatus('idle'), 5000);
       } else {
         throw new Error('Email service returned an error');
@@ -51,11 +61,10 @@ export default function ContactForm() {
     } catch (error: any) {
       console.error('Failed to send email:', error);
       setStatus('error');
-      
-      // Provide more specific error messages
-      if (error.message && error.message.includes('not configured')) {
-        setErrorMessage('⚠️ Email service not set up yet. Please contact us at qofenolabs@gmail.com');
-      } else if (error.text) {
+
+      if (error?.message?.includes('not configured')) {
+        setErrorMessage('Email service not set up. Please email us at qofenolabs@gmail.com');
+      } else if (error?.text) {
         setErrorMessage(`Failed to send: ${error.text}. Please email us at qofenolabs@gmail.com`);
       } else {
         setErrorMessage('Failed to send message. Please email us directly at qofenolabs@gmail.com');
@@ -63,31 +72,8 @@ export default function ContactForm() {
     }
   };
 
-  // Check if EmailJS is configured
-  const isConfigured = 
-    process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID && 
-    process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID && 
-    process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY &&
-    process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY !== 'YOUR_PUBLIC_KEY';
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {!isConfigured && (
-        <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-amber-800">
-                <strong>Development Mode:</strong> Email service not configured. Messages will show an error. For now, please contact us at <a href="mailto:qofenolabs@gmail.com" className="font-semibold underline">qofenolabs@gmail.com</a>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-900 mb-2">
           Name
